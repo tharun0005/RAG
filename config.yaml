@@ -1,0 +1,66 @@
+model_list:
+  - model_name: llama-3.3-70b-groq
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      provider: groq
+      description: "Fast and powerful 70B model"
+      context_window: 32768
+
+  - model_name: llama-3.1-8b-groq
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: "os.environ/GROQ_API_KEY"
+    model_info:
+      provider: groq
+      description: "Ultra-fast 8B model"
+      context_window: 131072
+
+# ==================== LITELLM SETTINGS ====================
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  request_timeout: 600
+  num_retries: 2
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+
+  # ✅ Fallback models (only working ones)
+  fallback_models:
+    - llama-3.3-70b-groq
+    - llama-3.1-8b-groq
+
+# ==================== GENERAL SETTINGS ====================
+general_settings:
+  disable_auth: true
+
+# ==================== ENVIRONMENT VARIABLES ====================
+environment_variables:
+  # API Keys
+  GROQ_API_KEY: ${GROQ_API_KEY}
+  HF_TOKEN: ${HF_TOKEN}
+
+  # ✅ LangFuse credentials for LiteLLM integration
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+  LANGFUSE_HOST: ${LANGFUSE_HOST}
+
+# ==================== DEFAULT MODEL ====================
+default_model: llama-3.3-70b-groq
+
+# ==================== ROUTER SETTINGS ====================
+router_settings:
+  routing_strategy: "least-busy"
+  allowed_fails: 3
+  cooldown_time: 30
+
+  # Model group aliases (only working models)
+  model_group_alias:
+    fast_models:
+      - llama-3.1-8b-groq
+      - llama-3.3-70b-groq
+
+    groq_models:
+      - llama-3.3-70b-groq
+      - llama-3.1-8b-groq

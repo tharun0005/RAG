@@ -1,0 +1,7 @@
+.env
+
+data/chroma_db
+data/uploads
+data/vector_stores.json
+
+models_cache
