@@ -1,0 +1,32 @@
+# Core
+fastapi==0.115.14
+uvicorn==0.29.0
+python-dotenv==1.1.1
+python-multipart==0.0.18
+
+# LLM & AI
+openai==1.109.1
+litellm==1.78.6
+langfuse==2.43.2
+
+# LlamaIndex
+llama-index==0.14.5
+llama-index-vector-stores-chroma==0.5.3
+llama-index-embeddings-huggingface==0.6.1
+llama-index-embeddings-ollama==0.8.3
+
+# Vector DB & Embeddings
+chromadb==1.2.1
+sentence-transformers==5.1.1
+
+#Data
+pydantic==2.12.3
+pyyaml==6.0.3
+
+# HTTP
+httpx==0.28.1
+requests==2.32.5
+
+# Utils
+tqdm==4.67.1
+backoff==2.2.1
