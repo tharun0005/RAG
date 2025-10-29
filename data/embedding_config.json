@@ -1,0 +1,16 @@
+{
+  "huggingface": {
+    "embedding_models": [
+      "BAAI/bge-small-en",
+      "sentence-transformers/all-mpnet-base-v2",
+      "sentence-transformers/all-MiniLM-L6-v2",
+      "intfloat/e5-small-v2"
+    ]
+  },
+  "ollama": {
+    "embedding_models": [
+      "nomic-embed-text",
+      "all-minilm"
+    ]
+  }
+}

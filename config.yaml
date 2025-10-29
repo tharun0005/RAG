@@ -1,0 +1,97 @@
+model_list:
+  - model_name: llama-3.3-70b-groq
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: os.environ/GROQ_API_KEY
+    model_info:
+      provider: groq
+      description: "Fast and powerful 70B model"
+      context_window: 32768
+
+  - model_name: llama-3.1-8b-groq
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: os.environ/GROQ_API_KEY
+    model_info:
+      provider: groq
+      description: "Ultra-fast 8B model"
+      context_window: 131072
+
+guardrails:
+  - guardrail_name: "sensitive-topics-guard"
+    litellm_params:
+      guardrail: guardrails_ai
+      guard_name: "sensitive-topic-guard"
+      mode: ["pre_call", "post_call"]
+      api_base: "http://localhost:8001"
+      guardrails_ai_api_input_format: "llmOutput"
+      default_on: true
+    guardrail_info:
+      description: "Blocks sensitive topics like politics, violence in both input and output"
+
+  - guardrail_name: "toxic-language-guard"
+    litellm_params:
+      guardrail: guardrails_ai
+      guard_name: "toxic-language-guard"
+      mode: ["pre_call", "post_call"]
+      api_base: "http://localhost:8001"
+      guardrails_ai_api_input_format: "llmOutput"
+      default_on: true
+    guardrail_info:
+      description: "Detects toxic, insulting, or offensive language in both input and output"
+
+  - guardrail_name: "combined-safety-guard"
+    litellm_params:
+      guardrail: guardrails_ai
+      guard_name: "combined-safety-guard"
+      mode: ["pre_call", "post_call"]
+      api_base: "http://localhost:8001"
+      guardrails_ai_api_input_format: "llmOutput"
+      default_on: false
+
+litellm_settings:
+  drop_params: true
+  set_verbose: true
+  request_timeout: 600
+  num_retries: 2
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+  fallback_models:
+    - llama-3.3-70b-groq
+    - llama-3.1-8b-groq
+
+general_settings:
+  disable_auth: true
+
+environment_variables:
+  GROQ_API_KEY: ${GROQ_API_KEY}
+  HF_TOKEN: ${HF_TOKEN}
+  LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+  LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+  LANGFUSE_HOST: ${LANGFUSE_HOST}
+  GUARDRAILS_AI_API_BASE: "http://localhost:8001"
+
+default_model: llama-3.3-70b-groq
+
+router_settings:
+  routing_strategy: "least-busy"
+  allowed_fails: 3
+  cooldown_time: 30
+  num_retries: 2
+  retry_after: 10
+  timeout: 600
+
+  model_group_alias:
+    fast_models:
+      - llama-3.1-8b-groq
+      - llama-3.3-70b-groq
+
+    groq_models:
+      - llama-3.3-70b-groq
+      - llama-3.1-8b-groq
+
+    rag_models:
+      - llama-3.3-70b-groq
+
+    speed_models:
+      - llama-3.1-8b-groq

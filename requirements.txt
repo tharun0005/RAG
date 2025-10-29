@@ -1,0 +1,38 @@
+# Core Framework
+fastapi==0.115.14
+uvicorn==0.29.0
+python-multipart==0.0.18
+
+# LLM Integration
+openai==1.109.1
+litellm==1.78.6
+langfuse==2.43.2
+
+# Guardrails
+flask==3.1.2
+guardrails-ai==0.6.7
+guardrails-grhub-sensitive-topics==0.0.2
+guardrails-grhub-toxic-language==0.0.2
+
+# Vector Store & Embeddings
+chromadb==1.2.1
+llama-index-core==0.14.5
+llama-index-embeddings-huggingface==0.6.1
+llama-index-embeddings-ollama==0.8.3
+llama-index-vector-stores-chroma==0.5.3
+
+# Document Processing
+pypdf==6.1.2
+
+# ML/AI Libraries
+sentence-transformers==5.1.1
+torch==2.9.0
+transformers==4.57.1
+
+# Utilities
+python-dotenv==1.1.1
+pyyaml==6.0.3
+requests==2.32.5
+
+# Jinja2 for FastAPI templates
+Jinja2==3.1.6

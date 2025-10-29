@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body class="bg-black text-white flex flex-col items-center justify-center min-h-screen font-sans relative overflow-hidden">
+
+  <div id="particles" aria-hidden="true"></div>
+
+  <main id="main-content" class="relative z-10 flex flex-col items-center">
+    <h1 class="text-5xl md:text-6xl font-extrabold mb-14 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500 drop-shadow-lg">
+      AI Tools Dashboard
+    </h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-12 w-11/12 max-w-6xl">
+      <button
+        type="button"
+        id="dataCard"
+        class="card relative bg-gray-900/80 backdrop-blur-md rounded-3xl shadow-xl p-10 border border-gray-700 hover:border-cyan-400 hover:scale-105 transition-all text-left focus:outline-none focus:ring-4 focus:ring-cyan-500/50"
+        aria-label="Open Data Ingestion tool">
+        <h2 class="text-3xl font-semibold mb-5 text-cyan-300">Data Ingestion</h2>
+        <p class="text-gray-300 mb-8 leading-relaxed">
+          Effortlessly upload, validate, and preprocess datasets for AI model training. Monitor ingestion pipelines and transformations in real time.
+        </p>
+      </button>
+
+      <button
+        type="button"
+        id="chatCard"
+        class="card relative bg-gray-900/80 backdrop-blur-md rounded-3xl shadow-xl p-10 border border-gray-700 hover:border-pink-400 hover:scale-105 transition-all text-left focus:outline-none focus:ring-4 focus:ring-pink-500/50"
+        aria-label="Open Chatbot tool">
+        <h2 class="text-3xl font-semibold mb-5 text-pink-300">Chatbot</h2>
+        <p class="text-gray-300 mb-8 leading-relaxed">
+          Deploy your conversational AI. Test responses, fine-tune NLP models, and engage through an interactive chat simulation interface.
+        </p>
+      </button>
+    </div>
+  </main>
+
+  <div
+    id="chatbot-modal"
+    class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-title"
+    aria-describedby="modal-description">
+
+    <div class="bg-gray-900 rounded-2xl p-8 w-full max-w-md mx-4 border border-cyan-500/30 backdrop-blur-lg shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 id="modal-title" class="text-2xl font-bold text-cyan-300">
+          Create New Chatbot
+        </h3>
+        <button
+          id="close-modal"
+          type="button"
+          class="text-gray-400 hover:text-white text-2xl w-10 h-10 flex items-center justify-center rounded-lg hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          aria-label="Close modal">
+          &times;
+        </button>
+      </div>
+
+      <p id="modal-description" class="sr-only">
+        Form to create a new chatbot by selecting a vector store and defining a use case
+      </p>
+
+      <form id="chatbot-form" class="space-y-6">
+        <div>
+          <label for="vector-store-select" class="block text-sm font-medium text-gray-300 mb-2">
+            Select Vector Store <span class="text-red-400">*</span>
+          </label>
+          <select
+            id="vector-store-select"
+            name="vectorStore"
+            required
+            aria-required="true"
+            aria-describedby="vector-store-error"
+            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-colors">
+            <option value="">Loading vector stores...</option>
+          </select>
+          <p id="vector-store-error" class="text-red-400 text-sm mt-1 hidden" role="alert"></p>
+        </div>
+
+        <div>
+          <label for="usecase-name" class="block text-sm font-medium text-gray-300 mb-2">
+            Chatbot Use Case <span class="text-red-400">*</span>
+          </label>
+          <input
+            type="text"
+            id="usecase-name"
+            name="usecaseName"
+            required
+            aria-required="true"
+            aria-describedby="usecase-error usecase-hint"
+            placeholder="e.g., Legal Assistant, Customer Support Bot"
+            class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-colors">
+          <p id="usecase-hint" class="text-gray-400 text-xs mt-1">
+            Provide a descriptive name for your chatbot
+          </p>
+          <p id="usecase-error" class="text-red-400 text-sm mt-1 hidden" role="alert"></p>
+        </div>
+
+        <div id="form-loading" class="hidden">
+          <div class="flex items-center justify-center gap-3 py-4">
+            <svg class="animate-spin h-5 w-5 text-cyan-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-gray-300">Creating chatbot...</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-4">
+          <button
+            type="button"
+            id="cancel-chatbot"
+            class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            id="submit-chatbot"
+            class="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            Create Chatbot
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', path='js/script.js') }}" defer></script>
+</body>
+</html>

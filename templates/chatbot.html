@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/chatbot.css') }}">
+</head>
+<body class="bg-gray-900 text-white h-screen flex overflow-hidden">
+
+    <aside class="w-80 bg-gray-800 border-r border-gray-700 flex flex-col sidebar" aria-label="Vector store information">
+        <div class="p-6 border-b border-gray-700">
+            <h2 class="text-xl font-bold text-cyan-300 flex items-center">
+                <i class="fas fa-database mr-2" aria-hidden="true"></i>
+                Vector Store
+            </h2>
+            <p class="text-gray-400 text-sm mt-1" id="store-name">Loading...</p>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            <section class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-300 border-b border-gray-700 pb-2">Store Information</h3>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-sm text-gray-400">Document Count</label>
+                        <p class="text-white font-medium" id="document-count" aria-live="polite">-</p>
+                    </div>
+
+                    <div>
+                        <label class="text-sm text-gray-400">Embedding Provider</label>
+                        <p class="text-white font-medium" id="store-provider">-</p>
+                    </div>
+
+                    <div>
+                        <label class="text-sm text-gray-400">Embedding Model</label>
+                        <p class="text-white font-medium" id="store-model">-</p>
+                    </div>
+
+                    <div>
+                        <label class="text-sm text-gray-400">Created Date</label>
+                        <p class="text-white font-medium" id="created-date">-</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-300 border-b border-gray-700 pb-2">Upload Files</h3>
+
+                <div class="space-y-3">
+                    <div
+                        id="upload-area"
+                        class="border-2 border-dashed border-gray-600 rounded-lg p-4 text-center hover:border-cyan-500 transition-colors cursor-pointer"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Click or drag files to upload">
+                        <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2" aria-hidden="true"></i>
+                        <p class="text-sm text-gray-400">Click to upload files or drag and drop</p>
+                        <p class="text-xs text-gray-500 mt-1">Supports PDF, TXT, DOCX, PPTX, MD, CSV</p>
+                    </div>
+                    <input
+                        type="file"
+                        id="file-input"
+                        multiple
+                        class="hidden"
+                        accept=".pdf,.txt,.docx,.pptx,.md,.csv"
+                        aria-label="File upload input">
+
+                    <div id="selected-files" class="space-y-2 hidden">
+                        <p class="text-sm text-gray-400">Selected files:</p>
+                        <div id="file-preview" class="space-y-1" role="list"></div>
+                    </div>
+
+                    <div id="upload-progress" class="hidden" role="status" aria-live="polite">
+                        <div class="flex justify-between text-sm text-gray-400 mb-1">
+                            <span>Uploading...</span>
+                            <span id="upload-percentage">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div
+                                id="upload-progress-bar"
+                                class="bg-cyan-500 h-2 rounded-full transition-all duration-300"
+                                style="width: 0%"
+                                role="progressbar"
+                                aria-valuenow="0"
+                                aria-valuemin="0"
+                                aria-valuemax="100"></div>
+                        </div>
+                    </div>
+
+                    <button
+                        id="start-upload"
+                        class="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-2 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                        disabled
+                        aria-label="Upload selected files">
+                        <i class="fas fa-upload mr-2" aria-hidden="true"></i> Upload Files
+                    </button>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-300 border-b border-gray-700 pb-2">Files</h3>
+                <div class="space-y-2 max-h-60 overflow-y-auto" id="file-list" role="list" aria-live="polite">
+                    <div class="text-gray-400 text-sm">Loading files...</div>
+                </div>
+            </section>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col">
+        <header class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500">
+                    AI Chatbot
+                </h1>
+                <p class="text-gray-400 text-sm" id="chat-subtitle">Powered by your vector store</p>
+            </div>
+            <div class="flex space-x-3">
+                <button
+                    id="clear-chat"
+                    class="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    aria-label="Clear chat history">
+                    <i class="fas fa-trash mr-2" aria-hidden="true"></i> Clear Chat
+                </button>
+                <button
+                    id="download-chat"
+                    class="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg transition-colors flex items-center focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    aria-label="Download chat history">
+                    <i class="fas fa-download mr-2" aria-hidden="true"></i> Download
+                </button>
+            </div>
+        </header>
+
+        <div
+            class="flex-1 overflow-y-auto p-6 space-y-4"
+            id="chat-messages"
+            role="log"
+            aria-live="polite"
+            aria-label="Chat messages">
+            <div class="text-center text-gray-500 py-8" id="empty-state">
+                <i class="fas fa-robot text-4xl mb-3" aria-hidden="true"></i>
+                <p>Start a conversation by typing a message below</p>
+            </div>
+        </div>
+
+        <div class="border-t border-gray-700 p-4 bg-gray-800">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex items-center justify-between mb-3">
+                    <label for="message-input" class="text-sm text-gray-400">Chat Input</label>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-400">Include Source Documents</span>
+                        <label class="toggle-switch" aria-label="Toggle source documents">
+                            <input type="checkbox" id="include-sources" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                <form id="chat-form" class="flex space-x-3">
+                    <div class="flex-1">
+                        <input
+                            type="text"
+                            id="message-input"
+                            placeholder="Type your message here..."
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-colors"
+                            autocomplete="off"
+                            required
+                            aria-label="Message input"
+                            aria-describedby="input-hint"
+                        >
+                    </div>
+                    <button
+                        type="submit"
+                        class="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 py-3 rounded-lg transition-all transform hover:scale-105 flex items-center focus:outline-none focus:ring-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                        id="send-button"
+                        aria-label="Send message">
+                        <i class="fas fa-paper-plane mr-2" aria-hidden="true"></i> Send
+                    </button>
+                </form>
+                <p id="input-hint" class="text-xs text-gray-500 mt-2 text-center">
+                    Press Enter to send, Shift+Enter for new line
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <aside class="w-80 bg-gray-800 border-l border-gray-700 flex flex-col sidebar" aria-label="Chat configuration">
+        <div class="p-6 border-b border-gray-700">
+            <h2 class="text-xl font-bold text-pink-300 flex items-center">
+                <i class="fas fa-cog mr-2" aria-hidden="true"></i>
+                Configuration
+            </h2>
+            <p class="text-gray-400 text-sm mt-1">Settings are applied per query</p>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-8">
+            <section class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-300 border-b border-gray-700 pb-2">
+                    <i class="fas fa-search mr-2" aria-hidden="true"></i>Retriever Config
+                </h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="top-k" class="block text-sm text-gray-400 mb-2">
+                            <i class="fas fa-list-ol mr-1" aria-hidden="true"></i>Top K Results
+                        </label>
+                        <input
+                            type="number"
+                            id="top-k"
+                            min="1"
+                            max="20"
+                            value="5"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-pink-500 focus:ring-2 focus:ring-pink-500/20 transition-colors"
+                            aria-describedby="topk-hint"
+                        >
+                        <p id="topk-hint" class="text-xs text-gray-500 mt-1">Number of documents to retrieve</p>
+                    </div>
+
+                    <div>
+                        <label for="score-threshold" class="block text-sm text-gray-400 mb-2">
+                            <i class="fas fa-filter mr-1" aria-hidden="true"></i>Score Threshold
+                        </label>
+                        <input
+                            type="range"
+                            id="score-threshold"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value="0.7"
+                            class="w-full accent-pink-500"
+                            aria-describedby="threshold-hint"
+                            aria-valuetext="0.7"
+                        >
+                        <div class="flex justify-between text-xs text-gray-400">
+                            <span>0.0</span>
+                            <span id="threshold-value" aria-live="polite">0.7</span>
+                            <span>1.0</span>
+                        </div>
+                        <p id="threshold-hint" class="text-xs text-gray-500 mt-1">Minimum similarity score</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h3 class="text-lg font-semibold text-gray-300 border-b border-gray-700 pb-2">
+                    <i class="fas fa-brain mr-2" aria-hidden="true"></i>LLM Config
+                </h3>
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="llm-provider" class="block text-sm text-gray-400 mb-2">
+                            <i class="fas fa-plug mr-1" aria-hidden="true"></i>Provider
+                        </label>
+                        <select
+                            id="llm-provider"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-colors"
+                            aria-describedby="provider-hint"
+                        >
+                            <option value="">Loading providers...</option>
+                        </select>
+                        <p id="provider-hint" class="text-xs text-gray-500 mt-1">AI service provider</p>
+                    </div>
+
+                    <div>
+                        <label for="model-name" class="block text-sm text-gray-400 mb-2">
+                            <i class="fas fa-microchip mr-1" aria-hidden="true"></i>Model
+                        </label>
+                        <select
+                            id="model-name"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-colors"
+                            disabled
+                            aria-describedby="model-hint"
+                        >
+                            <option value="">Select a provider first</option>
+                        </select>
+                        <p id="model-hint" class="text-xs text-gray-500 mt-1">Model to use for generation</p>
+                    </div>
+
+                    <div>
+                        <label for="temperature" class="block text-sm text-gray-400 mb-2">
+                            <i class="fas fa-thermometer-half mr-1" aria-hidden="true"></i>Temperature
+                        </label>
+                        <input
+                            type="range"
+                            id="temperature"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value="0.7"
+                            class="w-full accent-cyan-500"
+                            aria-describedby="temp-hint"
+                            aria-valuetext="0.7"
+                        >
+                        <div class="flex justify-between text-xs text-gray-400">
+                            <span>0.0</span>
+                            <span id="temperature-value" aria-live="polite">0.7</span>
+                            <span>1.0</span>
+                        </div>
+                        <p id="temp-hint" class="text-xs text-gray-500 mt-1">Response creativity (0=deterministic, 1=creative)</p>
+                    </div>
+
+                    <div>
+                        <label for="max-tokens" class="block text-sm text-gray-400 mb-2">
+                            <i class="fas fa-ruler-horizontal mr-1" aria-hidden="true"></i>Max Tokens
+                        </label>
+                        <input
+                            type="number"
+                            id="max-tokens"
+                            min="100"
+                            max="4000"
+                            value="1000"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-colors"
+                            aria-describedby="tokens-hint"
+                        >
+                        <p id="tokens-hint" class="text-xs text-gray-500 mt-1">Maximum response length</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-3 pt-4 border-t border-gray-700">
+                <div class="bg-gray-700 rounded-lg p-3">
+                    <h4 class="text-sm font-semibold text-cyan-300 mb-2">
+                        <i class="fas fa-info-circle mr-1" aria-hidden="true"></i>Configuration Status
+                    </h4>
+                    <p class="text-xs text-gray-400">
+                        Settings are automatically applied to each query. No need to save - changes take effect immediately.
+                    </p>
+                </div>
+
+                <button
+                    id="reset-config"
+                    class="w-full bg-gray-600 hover:bg-gray-500 text-white py-2 rounded-lg transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    aria-label="Reset configuration to defaults">
+                    <i class="fas fa-undo mr-2" aria-hidden="true"></i> Reset to Defaults
+                </button>
+            </section>
+        </div>
+    </aside>
+
+    <script src="{{ url_for('static', path='js/chatbot.js') }}"></script>
+</body>
+</html>
