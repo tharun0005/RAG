@@ -650,12 +650,22 @@ async def get_litellm_models():
 @observe(name="rag_chat_endpoint", as_type="generation")
 async def chat(request: Request):
     """Complete RAG Chat endpoint with INPUT VALIDATION + retrieval and generation + LangFuse tracing"""
-    try:
-        body = await request.json()
-        message = body.get("message", "")
-        store_id = body.get("store_id", "")
-        config = body.get("config", {})
 
+    body = await request.json()
+    message = body.get("message", "")
+    store_id = body.get("store_id", "")
+    config = body.get("config", {})
+
+    if LANGFUSE_ENABLED:
+        langfuse_context.update_current_observation(
+            input={
+                "message": message,
+                "store_id": store_id,
+                "config": config
+            }
+        )
+
+    try:
         if not message or not store_id:
             raise HTTPException(status_code=400, detail="message and store_id required")
 
@@ -672,10 +682,10 @@ async def chat(request: Request):
                     metadata={"blocked_reason": error_msg}
                 )
                 langfuse_context.update_current_observation(
-                    input={"query": message[:100]},
                     output={"blocked": True, "reason": error_msg},
                     level="WARNING"
                 )
+                langfuse_context.flush()
 
             return JSONResponse(content={
                 "response": "I cannot process this request as it violates our content safety policy. Please rephrase your message in a respectful manner.",
@@ -733,10 +743,6 @@ async def chat(request: Request):
                 }
             )
 
-            langfuse_context.update_current_observation(
-                input={"query": message}
-            )
-
         logger.info(f"Chat request for store: {store['name']}")
         logger.info(f"User query: {message[:100]}...")
         logger.info(f"Config: model={model}, temp={temperature}, max_tokens={max_tokens}")
@@ -761,8 +767,10 @@ async def chat(request: Request):
             if LANGFUSE_ENABLED:
                 langfuse_context.update_current_observation(
                     output={"no_context": True},
+                    metadata={"retrieval_stats": context_data["stats"]},
                     level="WARNING"
                 )
+                langfuse_context.flush()
 
             return JSONResponse(content={
                 "response": "I couldn't find any relevant information in the knowledge base to answer your question. Try lowering the score threshold or asking a different question.",
@@ -840,6 +848,7 @@ async def chat(request: Request):
                 },
                 level="DEFAULT"
             )
+            langfuse_context.flush()
 
         logger.info(f"Chat completed successfully")
         logger.info(f"Returning {len(validated_chunks)} chunks to frontend")
@@ -849,18 +858,23 @@ async def chat(request: Request):
     except HTTPException as http_exc:
         if LANGFUSE_ENABLED:
             langfuse_context.update_current_observation(
+                output={"error": http_exc.detail},
                 level="ERROR",
                 status_message=f"HTTP {http_exc.status_code}: {http_exc.detail}"
             )
+            langfuse_context.flush()
         raise
+
     except Exception as e:
         logger.error(f"Chat error: {e}", exc_info=True)
 
         if LANGFUSE_ENABLED:
             langfuse_context.update_current_observation(
+                output={"error": str(e)},
                 level="ERROR",
                 status_message=str(e)
             )
+            langfuse_context.flush()
 
         raise HTTPException(status_code=500, detail=str(e))
 
