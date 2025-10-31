@@ -14,21 +14,26 @@ logger = logging.getLogger(__name__)
 
 
 class VectorStoreManager:
-    def __init__(self, base_path: str = "data/chroma_db"):
-        self.base_path = base_path
-        os.makedirs(base_path, exist_ok=True)
+    def __init__(self):
+        self.base_path = None
         self.client_cache = {}
         self.vector_store_cache = {}
+        logger.info("VectorStoreManager initialized")
 
-        logger.info(f"VectorStoreManager initialized at: {base_path}")
+    def set_base_path(self, base_path: str):
+        self.base_path = base_path
+        os.makedirs(self.base_path, exist_ok=True)
+        self.client_cache.clear()
+        self.vector_store_cache.clear()
+        logger.info(f"VectorStoreManager base path set to: {self.base_path}")
 
     def _get_store_path(self, store_id: str, store_name: str) -> str:
-        """Get dedicated path for this store"""
+        if not self.base_path:
+            raise RuntimeError("Base path not set. Call set_base_path() first.")
         clean_name = self._get_collection_name(store_name)
         return os.path.join(self.base_path, f"{store_id}_{clean_name}")
 
     def _get_client(self, store_id: str, store_name: str):
-        """Get or create ChromaDB client for this store"""
         if store_id in self.client_cache:
             return self.client_cache[store_id]
 
@@ -41,10 +46,10 @@ class VectorStoreManager:
         )
 
         self.client_cache[store_id] = client
+        logger.debug(f"Created ChromaDB client for store_id: {store_id} at {store_path}")
         return client
 
     def _close_client(self, store_id: str):
-        """Close and remove client from cache"""
         try:
             if store_id in self.client_cache:
                 del self.client_cache[store_id]
@@ -53,7 +58,6 @@ class VectorStoreManager:
             logger.warning(f"Error closing client: {e}")
 
     def create_vector_store(self, store_id: str, store_name: str, provider: str, model: str):
-        """Create a new ChromaVectorStore with dedicated folder"""
         try:
             client = self._get_client(store_id, store_name)
             collection_name = self._get_collection_name(store_name)
@@ -70,7 +74,6 @@ class VectorStoreManager:
             )
 
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-
             self.vector_store_cache[store_id] = vector_store
 
             store_path = self._get_store_path(store_id, store_name)
@@ -82,7 +85,6 @@ class VectorStoreManager:
             return False
 
     def get_vector_store(self, store_id: str, store_name: str) -> Optional[ChromaVectorStore]:
-        """Get an existing ChromaVectorStore"""
         try:
             if store_id in self.vector_store_cache:
                 return self.vector_store_cache[store_id]
@@ -91,9 +93,7 @@ class VectorStoreManager:
             collection_name = self._get_collection_name(store_name)
 
             chroma_collection = client.get_collection(name=collection_name)
-
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-
             self.vector_store_cache[store_id] = vector_store
 
             logger.info(f"Retrieved ChromaVectorStore: {collection_name}")
@@ -104,7 +104,6 @@ class VectorStoreManager:
             return None
 
     def add_nodes(self, store_id: str, store_name: str, nodes: List[BaseNode], embed_model):
-        """Add nodes to vector store using LlamaIndex with batch processing"""
         try:
             vector_store = self.get_vector_store(store_id, store_name)
             if not vector_store:
@@ -151,7 +150,6 @@ class VectorStoreManager:
             return False
 
     def get_vector_store_index(self, store_id: str, store_name: str, embed_model) -> Optional[VectorStoreIndex]:
-        """Get VectorStoreIndex for querying"""
         try:
             vector_store = self.get_vector_store(store_id, store_name)
             if not vector_store:
@@ -173,7 +171,6 @@ class VectorStoreManager:
             return None
 
     def query_vector_store(self, store_id: str, store_name: str, query: str, embed_model, top_k: int = 5):
-        """Query the vector store"""
         try:
             index = self.get_vector_store_index(store_id, store_name, embed_model)
             if not index:
@@ -190,7 +187,6 @@ class VectorStoreManager:
             return None
 
     def get_collection_count(self, store_id: str, store_name: str) -> int:
-        """Get number of chunks in the collection"""
         try:
             client = self._get_client(store_id, store_name)
             collection_name = self._get_collection_name(store_name)
@@ -205,7 +201,6 @@ class VectorStoreManager:
             return 0
 
     def delete_vector_store(self, store_id: str, store_name: str):
-        """Delete vector store and its folder completely"""
         try:
             collection_name = self._get_collection_name(store_name)
             store_path = self._get_store_path(store_id, store_name)
@@ -266,7 +261,6 @@ class VectorStoreManager:
             return False
 
     def _force_delete_folder(self, folder_path: str):
-        """Force delete folder using OS-specific commands (last resort)"""
         import platform
         import subprocess
 
@@ -278,11 +272,11 @@ class VectorStoreManager:
                            check=False, capture_output=True)
 
     def list_vector_stores(self):
-        """List all vector stores"""
         try:
             stores = []
 
-            if not os.path.exists(self.base_path):
+            if not self.base_path or not os.path.exists(self.base_path):
+                logger.warning(f"Base path does not exist: {self.base_path}")
                 return stores
 
             for folder_name in os.listdir(self.base_path):
@@ -291,7 +285,10 @@ class VectorStoreManager:
                 if os.path.isdir(folder_path) and '_' in folder_name:
                     try:
                         store_id = folder_name.split('_')[0]
-                        client = chromadb.PersistentClient(path=folder_path)
+                        client = chromadb.PersistentClient(
+                            path=folder_path,
+                            settings=Settings(anonymized_telemetry=False)
+                        )
                         collections = client.list_collections()
 
                         for collection in collections:
@@ -304,8 +301,8 @@ class VectorStoreManager:
                                 "document_count": collection.count(),
                                 "created_at": metadata.get("created_at", "unknown")
                             })
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Error processing folder {folder_name}: {e}")
 
             logger.info(f"Found {len(stores)} vector stores")
             return stores
@@ -315,7 +312,6 @@ class VectorStoreManager:
             return []
 
     def get_store_info(self, store_id: str, store_name: str):
-        """Get store information"""
         try:
             client = self._get_client(store_id, store_name)
             collection_name = self._get_collection_name(store_name)
@@ -333,7 +329,6 @@ class VectorStoreManager:
             return None
 
     def _get_collection_name(self, store_name: str) -> str:
-        """Convert store name to valid collection name"""
         clean_name = store_name.lower().replace(' ', '_').replace('-', '_')
         clean_name = re.sub(r'[^a-zA-Z0-9_-]', '', clean_name)
         clean_name = re.sub(r'^[^a-zA-Z0-9]+', '', clean_name)

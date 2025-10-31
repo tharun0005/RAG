@@ -288,28 +288,15 @@ class VectorStoreManager {
 
   async loadProviders() {
     try {
-      const endpoints = [
-        '/api/embedding-config',
-        '/data/embedding_config.json',
-        '/static/data/embedding_config.json'
-      ];
+      const res = await fetch('/api/embedding-config', {
+        signal: this.createAbortSignal()
+      });
 
-      let res = null;
-      for (const endpoint of endpoints) {
-        try {
-          res = await fetch(endpoint, { signal: this.createAbortSignal() });
-          if (res.ok) break;
-        } catch (e) {
-          if (e.name === 'AbortError') throw e;
-        }
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
 
-      if (!res || !res.ok) {
-        this.providersData = this.getDefaultProviders();
-      } else {
-        this.providersData = await res.json();
-      }
-
+      this.providersData = await res.json();
       this.populateProviderSelect();
 
     } catch (err) {

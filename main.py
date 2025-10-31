@@ -5,7 +5,9 @@ import logging
 import warnings
 import yaml
 import requests
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
@@ -56,13 +58,52 @@ except Exception as e:
 
         return decorator
 
-DATA_DIR = "data"
-VECTOR_STORES_FILE = os.path.join(DATA_DIR, "vector_stores.json")
-EMBEDDING_CONFIG_FILE = os.path.join(DATA_DIR, "embedding_config.json")
-UPLOADS_DIR = os.path.join(DATA_DIR, "uploads")
+
+def get_app_data_dir() -> Path:
+    app_name = os.getenv("APP_NAME", "chroma_db")
+    home = Path.home()
+
+    if sys.platform == "win32":
+        base_dir = home / "AppData" / "Roaming"
+    elif sys.platform == "darwin":
+        base_dir = home / "Library" / "Application Support"
+    else:
+        base_dir = home / ".local" / "share"
+
+    app_data_dir = base_dir / app_name
+    app_data_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info(f"App data directory: {app_data_dir}")
+    return app_data_dir
+
+
+def get_project_root() -> Path:
+    return Path(__file__).parent.resolve()
+
+
+PROJECT_ROOT = get_project_root()
+APP_DATA_DIR = get_app_data_dir()
+
+EMBEDDING_CONFIG_FILE = str(PROJECT_ROOT / "embedding_config.json")
+
+DATA_DIR_NAME = os.getenv("DATA_DIR", "data")
+CHROMA_DB_DIR_NAME = os.getenv("CHROMA_DB_DIR", "chroma_db")
+
+DATA_DIR = str(APP_DATA_DIR / DATA_DIR_NAME)
+CHROMA_DB_DIR = str(APP_DATA_DIR / CHROMA_DB_DIR_NAME)
+VECTOR_STORES_FILE = str(APP_DATA_DIR / DATA_DIR_NAME / "vector_stores.json")
+UPLOADS_DIR = str(APP_DATA_DIR / DATA_DIR_NAME / "uploads")
 
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(CHROMA_DB_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+logger.info(f"Project root: {PROJECT_ROOT}")
+logger.info(f"Embedding config: {EMBEDDING_CONFIG_FILE}")
+logger.info(f"Data directory: {DATA_DIR}")
+logger.info(f"ChromaDB directory: {CHROMA_DB_DIR}")
+logger.info(f"Vector stores file: {VECTOR_STORES_FILE}")
+logger.info(f"Uploads directory: {UPLOADS_DIR}")
 
 try:
     from ingestion.vector_store_manager import vector_store_manager
@@ -91,18 +132,6 @@ if RAG_AVAILABLE:
 
 
 def validate_user_input(text: str, guard_name: str = "sensitive-topic-guard") -> tuple[bool, str]:
-    """
-    Validate user input against guardrails before processing
-
-    Args:
-        text: The user input text to validate
-        guard_name: Name of the guard to use (default: sensitive-topic-guard)
-
-    Returns:
-        Tuple of (is_valid, error_message)
-        - is_valid: True if validation passed, False if blocked
-        - error_message: Empty string if valid, error description if blocked
-    """
     if not GUARDRAILS_ENABLED:
         logger.warning("Guardrails disabled, allowing request")
         return True, ""
@@ -140,15 +169,13 @@ def validate_user_input(text: str, guard_name: str = "sensitive-topic-guard") ->
 
 
 def init_vector_stores():
-    """Initialize vector stores JSON file"""
     if not os.path.exists(VECTOR_STORES_FILE):
         with open(VECTOR_STORES_FILE, 'w') as f:
             json.dump({"vector_stores": []}, f, indent=2)
-        logger.info("Created vector_stores.json")
+        logger.info(f"Created vector_stores.json at {VECTOR_STORES_FILE}")
 
 
 def init_embedding_config():
-    """Initialize embedding config JSON file"""
     if not os.path.exists(EMBEDDING_CONFIG_FILE):
         default_config = {
             "huggingface": {
@@ -167,15 +194,14 @@ def init_embedding_config():
         }
         with open(EMBEDDING_CONFIG_FILE, 'w') as f:
             json.dump(default_config, f, indent=2)
-        logger.info("Created embedding_config.json")
+        logger.info(f"Created embedding_config.json at {EMBEDDING_CONFIG_FILE}")
 
 
-init_vector_stores()
 init_embedding_config()
+init_vector_stores()
 
 
 def load_vector_stores():
-    """Load vector stores from JSON"""
     try:
         with open(VECTOR_STORES_FILE, 'r') as f:
             return json.load(f)
@@ -184,13 +210,11 @@ def load_vector_stores():
 
 
 def save_vector_stores(data):
-    """Save vector stores to JSON"""
     with open(VECTOR_STORES_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
 
 def load_embedding_config():
-    """Load embedding config from JSON"""
     try:
         with open(EMBEDDING_CONFIG_FILE, 'r') as f:
             return json.load(f)
@@ -199,7 +223,6 @@ def load_embedding_config():
 
 
 def find_store(store_id: str):
-    """Find a vector store by ID"""
     data = load_vector_stores()
     for store in data["vector_stores"]:
         if store["id"] == store_id:
@@ -208,7 +231,6 @@ def find_store(store_id: str):
 
 
 def load_litellm_config():
-    """Load LiteLLM models from config.yaml"""
     try:
         with open('config.yaml', 'r') as f:
             config = yaml.safe_load(f)
@@ -249,13 +271,20 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     logger.info("AI RAG Dashboard Starting...")
     logger.info("=" * 60)
+    logger.info(f"Project root: {PROJECT_ROOT}")
+    logger.info(f"App data directory: {APP_DATA_DIR}")
     logger.info(f"Data directory: {DATA_DIR}")
+    logger.info(f"ChromaDB directory: {CHROMA_DB_DIR}")
+    logger.info(f"Embedding config (project): {EMBEDDING_CONFIG_FILE}")
+    logger.info(f"Vector stores (user): {VECTOR_STORES_FILE}")
+    logger.info(f"Uploads directory: {UPLOADS_DIR}")
     logger.info(f"Ingestion available: {INGESTION_AVAILABLE}")
     logger.info(f"RAG available: {RAG_AVAILABLE}")
     logger.info(f"LangFuse enabled: {LANGFUSE_ENABLED}")
     logger.info(f"Guardrails enabled: {GUARDRAILS_ENABLED}")
 
     if INGESTION_AVAILABLE:
+        vector_store_manager.set_base_path(CHROMA_DB_DIR)
         stores = load_vector_stores()
         logger.info(f"Loaded {len(stores['vector_stores'])} existing vector stores")
 
@@ -308,14 +337,12 @@ async def chatbot_ui(request: Request):
 
 @app.get("/api/embedding-config")
 async def get_embedding_config():
-    """Get embedding providers and models"""
     config = load_embedding_config()
     return JSONResponse(content=config)
 
 
 @app.get("/api/vectorstores")
 async def get_vector_stores():
-    """Get all vector stores with updated counts"""
     data = load_vector_stores()
 
     if INGESTION_AVAILABLE:
@@ -336,7 +363,6 @@ async def get_vector_stores():
 
 @app.get("/api/vectorstores/{store_id}/verify")
 async def verify_vector_store(store_id: str):
-    """Verify if vector store exists"""
     store = find_store(store_id)
 
     if not store:
@@ -373,7 +399,6 @@ async def verify_vector_store(store_id: str):
 
 @app.get("/api/vectorstores/{store_id}/info")
 async def get_vector_store_info(store_id: str):
-    """Get detailed info about a vector store"""
     store = find_store(store_id)
 
     if not store:
@@ -413,7 +438,6 @@ async def create_vector_store(
         description: str = Form(""),
         files: List[UploadFile] = File([])
 ):
-    """Create a new vector store with ChromaDB"""
     store_id = None
 
     try:
@@ -514,7 +538,6 @@ async def upload_files_to_store(
         store_id: str,
         files: List[UploadFile] = File(...)
 ):
-    """Upload additional files to existing vector store"""
     try:
         store = find_store(store_id)
 
@@ -602,7 +625,6 @@ async def upload_files_to_store(
 
 @app.delete("/api/vectorstores/{store_id}")
 async def delete_vector_store(store_id: str):
-    """Delete a vector store"""
     try:
         store = find_store(store_id)
 
@@ -642,15 +664,12 @@ async def delete_vector_store(store_id: str):
 
 @app.get("/api/litellm/models")
 async def get_litellm_models():
-    """Get available LLM models from config.yaml"""
     return JSONResponse(content=load_litellm_config())
 
 
 @app.post("/api/chat")
 @observe(name="rag_chat_endpoint", as_type="generation")
 async def chat(request: Request):
-    """Complete RAG Chat endpoint with INPUT VALIDATION + retrieval and generation + LangFuse tracing"""
-
     body = await request.json()
     message = body.get("message", "")
     store_id = body.get("store_id", "")
@@ -882,7 +901,6 @@ async def chat(request: Request):
 @app.get("/api/test-langfuse")
 @observe(name="test_langfuse_connection")
 async def test_langfuse():
-    """Test LangFuse connection and tracing"""
     try:
         if not LANGFUSE_ENABLED or not langfuse_client:
             return JSONResponse(content={
@@ -916,13 +934,16 @@ async def test_langfuse():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
     return JSONResponse(content={
         "status": "healthy",
         "ingestion_available": INGESTION_AVAILABLE,
         "rag_available": RAG_AVAILABLE,
         "langfuse_enabled": LANGFUSE_ENABLED,
         "guardrails_enabled": GUARDRAILS_ENABLED,
+        "project_root": str(PROJECT_ROOT),
+        "app_data_dir": str(APP_DATA_DIR),
+        "data_dir": DATA_DIR,
+        "chroma_db_dir": CHROMA_DB_DIR,
         "timestamp": datetime.now().isoformat()
     })
 
